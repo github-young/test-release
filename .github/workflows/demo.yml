@@ -5,10 +5,6 @@ on:
     tags:
       - "v*.*.*"
 
-permissions:
-    contents: write
-    packages: write
-
 jobs:
   release:
     runs-on: ubuntu-latest
@@ -20,21 +16,29 @@ jobs:
       - name: Get the latest tag
         id: get_tag
         run: |
-          echo "::set-output name=tag::$(git describe --tags --abbrev=0 || echo 'v0.0.0')"
+          TAG=$(git describe --tags --abbrev=0 || echo 'v0.0.0')
+          echo "TAG=${TAG}" >> $GITHUB_ENV
 
       - name: Generate Release Notes
         id: release_notes
         run: |
-          git log "${{ steps.get_tag.outputs.tag }}..HEAD" --pretty=format:'* %s' > release_notes.md
-          echo "::set-output name=notes::$(cat release_notes.md)"
+          git log "${{ env.TAG }}..HEAD" --pretty=format:'* %s' > release_notes.md
+          echo "RELEASE_NOTES<<EOF" >> $GITHUB_ENV
+          cat release_notes.md >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
 
       - name: Create Release
-        uses: softprops/action-gh-release@v1
-        with:
-          tag_name: ${{ steps.get_tag.outputs.tag }}
-          name: Release ${{ steps.get_tag.outputs.tag }}
-          body: ${{ steps.release_notes.outputs.notes }}
-          draft: false
-          prerelease: false
+        run: |
+          curl -X POST \
+            -H "Authorization: token $GITHUB_TOKEN" \
+            -H "Accept: application/vnd.github.v3+json" \
+            https://api.github.com/repos/${{ github.repository }}/releases \
+            -d '{
+              "tag_name": "'"${{ env.TAG }}"'",
+              "name": "Release '"${{ env.TAG }}"'",
+              "body": "'"${{ env.RELEASE_NOTES }}"'",
+              "draft": false,
+              "prerelease": false
+            }'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
