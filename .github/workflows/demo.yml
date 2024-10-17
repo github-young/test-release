@@ -5,26 +5,33 @@ on:
     tags:
       - "v*.*.*"
 
+permissions:
+  contents: write
+
 jobs:
-  create-release:
+  release:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
-      - name: Get latest git tag
-        id: get-tag
+      - name: Get the latest tag
+        id: get_tag
         run: |
-          TAG=$(git describe --tags --abbrev=0)
-          echo "::set-env name=TAG::${TAG}"
-
-      - name: Get git log output
-        id: git-log
+          echo "::set-output name=tag::$(git describe --tags --abbrev=0 || echo 'v0.0.0')"
+      - name: Generate Release Notes
+        id: release_notes
         run: |
-          echo "::set-env name=RELEASE_NOTES::$(git log ${{ steps.get-tag.outputs.TAG }}..HEAD --pretty=format:'* %s')"
-
+          git log "${{ steps.get_tag.outputs.tag }}..HEAD" --pretty=format:'* %s' > release_notes.md
+          echo "::set-output name=notes::$(cat release_notes.md)"
       - name: Create Release
-        run: |
-          gh release create ${{ steps.get-tag.outputs.TAG }} --title "${{ steps.get-tag.outputs.TAG }}" --notes "${{ steps.git-log.outputs.RELEASE_NOTES }}" --repo owner/repo-name
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.get_tag.outputs.tag }}
+          name: Release ${{ steps.get_tag.outputs.tag }}
+          body: ${{ steps.release_notes.outputs.notes }}
+          draft: false
+          prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
