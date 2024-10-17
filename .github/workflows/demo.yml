@@ -16,7 +16,7 @@ jobs:
           path: ./
 
       - name: Create Release
-        uses: softprops/action-release@v2
+        uses: softprops/action-gh-release@v2
         with:
           files: ./release-note-example.md
           token: ${{ secrets.GITHUB_TOKEN }}
