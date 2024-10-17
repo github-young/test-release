@@ -1,15 +1,36 @@
-name: Main
+name: Release
 
 on:
-  push:
-    tags:
-      - "v*.*.*"
+    push:
+      tags:
+        - "v*.*.*"
 
 jobs:
-  build:
+  release:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Release
-        uses: softprops/action-gh-release@v2
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Get the latest tag
+        id: get_tag
+        run: |
+          echo "::set-output name=tag::$(git describe --tags --abbrev=0 || echo 'v0.0.0')"
+
+      - name: Generate Release Notes
+        id: release_notes
+        run: |
+          git log "${{ steps.get_tag.outputs.tag }}..HEAD" --pretty=format:'* %s' > release_notes.md
+          echo "::set-output name=notes::$(cat release_notes.md)"
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.get_tag.outputs.tag }}
+          name: Release ${{ steps.get_tag.outputs.tag }}
+          body: ${{ steps.release_notes.outputs.notes }}
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
